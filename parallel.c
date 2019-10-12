@@ -8,7 +8,7 @@ int main (int argc, char *argv[]) {
   int num_proccess = atoi(argv[1]); // numero de processos
   printf("num_proccess: %d\n", num_proccess);
 
-  char output[4]; // sum (somente soma), time (somente tempo), all
+  char output[5]; // sum (somente soma), time (somente tempo), all
   fgets(output, sizeof(output), stdin);
   printf("output: %s\n", output);
   
