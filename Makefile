@@ -1,4 +1,4 @@
-CC = gcc
+CC = mpicc
 CFLAGS = -g -O0 -Wall -Wextra -Werror -std=c99 -fopenmp
 LIBS = -lm
 
