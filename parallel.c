@@ -8,18 +8,22 @@
 
 int MAX_STRING = 100;
 
-void readMetadata(int nProcess, int myRank, char outputType[5], int *length, float *numbersPerProccess) {
+void readMetadata(int nProcess, int myRank, char outputType[5], int *length, int *numbersPerProccess) {
   if(myRank == 0) {
     int i;
 
     fgets(outputType, sizeof(char) * 5, stdin);  
     scanf("%d", length);
 
-    *numbersPerProccess = ceil(*length / nProcess);
+    *numbersPerProccess = *length / nProcess;
     // Sending to the other process how many numbers they should handle 
     for(i = 1; i < nProcess; i++) {
-      // 
-      MPI_Send(numbersPerProccess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+      if(i != nProcess - 1) {
+        MPI_Send(numbersPerProccess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+      } else {
+        *numbersPerProccess = *length - (*numbersPerProccess * i);
+        MPI_Send(numbersPerProccess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+      }
     }
   } else {
     MPI_Recv(numbersPerProccess, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -27,7 +31,7 @@ void readMetadata(int nProcess, int myRank, char outputType[5], int *length, flo
   }
 }
 
-void readArrayAndSplitData(int nProcess, int myRank, int length, float numbersPerProccess, float *partition) {
+void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerProccess, float *partition) {
   int i;
   float currentNumber;
 
@@ -61,8 +65,9 @@ void readArrayAndSplitData(int nProcess, int myRank, int length, float numbersPe
 // }
 
 int main (void) {
+  int i;
   int nProcess, myRank, length;
-  float numbersPerProccess;
+  int numbersPerProccess;
   char outputType[5];
 
   // Initialize the MPI environment
@@ -79,11 +84,11 @@ int main (void) {
   float *partition = (float *) calloc(numbersPerProccess, sizeof(float));
   readArrayAndSplitData(nProcess, myRank, length, numbersPerProccess, partition);  
 
-  // printf("partition %d\n", myRank);
-  // for(i = 0; i < numbersPerProccess; i++) {
-  //   printf("%f ", partition[i]);
-  // }
-  // printf("\n");
+  printf("partition %d\n", myRank);
+  for(i = 0; i < numbersPerProccess; i++) {
+    printf("%f ", partition[i]);
+  }
+  printf("\n");
 
   // Finalize MPI environment
   MPI_Finalize();
