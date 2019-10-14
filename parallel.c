@@ -58,14 +58,34 @@ void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerP
   }
 }
 
-// sumOfElements(float *partition) {
-//   float sum = 0.0;
+void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSize) {
+  float numberToBeChanged;
+  int lastIndex = *partitionSize - 1;
 
-  
-// }
+  if(myRank % 2 == 0 && myRank < nProcess - 1) {
+    printf("Sending %f to %d\n", partition[lastIndex], myRank + 1);
+    MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD);
+  } else {
+    printf("Sending %f to %d\n", partition[lastIndex], myRank - 1);
+    MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD);
+  }
+
+  if(myRank % 2 == 0) {
+    printf("rank %d will receive from %d\n", myRank, myRank + 1);
+    MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  } else {
+    printf("rank %d will receive from %d\n", myRank, myRank - 1);
+    MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  }
+
+  if(lastIndex - 1 >= 0) {
+    partition[lastIndex  - 1] += numberToBeChanged;
+    partition[lastIndex] = 0;
+    *partitionSize = *partitionSize - 1;
+  }
+}
 
 int main (void) {
-  int i;
   int nProcess, myRank, length;
   int numbersPerProccess;
   char outputType[5];
@@ -84,7 +104,9 @@ int main (void) {
   float *partition = (float *) calloc(numbersPerProccess, sizeof(float));
   readArrayAndSplitData(nProcess, myRank, length, numbersPerProccess, partition);  
 
-  printf("partition %d\n", myRank);
+  sumOfElements(nProcess, myRank, partition, &numbersPerProccess);
+  
+  int i;
   for(i = 0; i < numbersPerProccess; i++) {
     printf("%f ", partition[i]);
   }
