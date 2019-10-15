@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <omp.h>
 #include <mpi.h>
 #include <string.h>
 #include <math.h>
@@ -67,20 +66,20 @@ void sumOfElements(int nProcess, int myRank, float *partition, float *partitionS
     return;
   }
 
-  if(myRank % 2 == 0 && myRank + 1 < nProcess) {
+  if(myRank == 0) {
     // printf("Sending %f to %d\n", partition[lastIndex], myRank + 1);
-    MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD);
-  } else if(myRank - 1 >= 0) {
+    MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, nProcess - 1, 0, MPI_COMM_WORLD);
+  } else {
     // printf("Sending %f to %d\n", partition[lastIndex], myRank - 1);
     MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD);
   }
 
-  if(myRank % 2 == 0 && myRank < nProcess - 1) {
+  if(myRank == nProcess - 1) {
     // printf("rank %d will receive from %d\n", myRank, myRank + 1);
-    MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  } else if(myRank - 1 >= 0) {
+    MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  } else {
     // printf("rank %d will receive from %d\n", myRank, myRank - 1);
-    MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 
   if(lastIndex - 1 >= 0) {
