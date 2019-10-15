@@ -58,27 +58,28 @@ void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerP
   }
 }
 
-void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSize) {
+void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSize, int *aliveProcess) {
   float numberToBeChanged;
   int lastIndex = *partitionSize - 1;
 
-  if(partitionSize == 0) {
+  if(*partitionSize == 1) {
+    *aliveProcess = *aliveProcess - 1;
     return;
   }
 
   if(myRank % 2 == 0 && myRank < nProcess - 1) {
-    printf("Sending %f to %d\n", partition[lastIndex], myRank + 1);
+    // printf("Sending %f to %d\n", partition[lastIndex], myRank + 1);
     MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD);
   } else if(myRank - 1 >= 0) {
-    printf("Sending %f to %d\n", partition[lastIndex], myRank - 1);
+    // printf("Sending %f to %d\n", partition[lastIndex], myRank - 1);
     MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD);
   }
 
   if(myRank % 2 == 0 && myRank < nProcess - 1) {
-    printf("rank %d will receive from %d\n", myRank, myRank + 1);
+    // printf("rank %d will receive from %d\n", myRank, myRank + 1);
     MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   } else if(myRank - 1 >= 0) {
-    printf("rank %d will receive from %d\n", myRank, myRank - 1);
+    // printf("rank %d will receive from %d\n", myRank, myRank - 1);
     MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 
@@ -89,9 +90,29 @@ void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSiz
   }
 }
 
+
+void reduce(int myRank, int nProcess, float *partition, int *partitionLength,  int jumpProcess) {
+  float value = 0;
+
+  if(partitionLength == 0) {
+    return;
+  }
+
+  if(myRank % (jumpProcess * 2) == 0 && myRank + jumpProcess < nProcess) {
+    MPI_Recv(&value, 1, MPI_FLOAT, myRank + jumpProcess, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    partition[0] += value;
+    // printf("PASSO %d Processo %d tem valor %f\n", jumpProcess, myRank, partition[0]);
+  } else if(myRank % (jumpProcess * 2) != 0 && myRank - jumpProcess >= 0) {
+    value = partition[0];
+    // printf("PASSO %d Sending %f to %d from %d\n", jumpProcess, value, myRank - jumpProcess, myRank);
+    MPI_Send(&value, 1, MPI_FLOAT, myRank - jumpProcess, 0, MPI_COMM_WORLD);
+    *partitionLength = *partitionLength - 1;
+  }
+}
+
 int main (void) {
   int nProcess, myRank, length;
-  int numbersPerProcess;
+  int numbersPerProcess, aliveProcess;
   char outputType[5];
 
   // Initialize the MPI environment
@@ -108,13 +129,27 @@ int main (void) {
   float *partition = (float *) calloc(numbersPerProcess, sizeof(float));
   readArrayAndSplitData(nProcess, myRank, length, numbersPerProcess, partition);  
 
-  sumOfElements(nProcess, myRank, partition, &numbersPerProcess);
-  
-  int i;
-  for(i = 0; i < numbersPerProcess; i++) {
-    printf("%f ", partition[i]);
+  aliveProcess = nProcess;
+  while(aliveProcess > 1) {
+    sumOfElements(nProcess, myRank, partition, &numbersPerProcess, &aliveProcess);
   }
-  printf("\n");
+  
+  // int i;
+  // for(i = 0; i < numbersPerProcess; i++) {
+  //   printf("%f ", partition[i]);
+  // }
+  // printf("\n");
+
+  // aliveProcess = nProcess;
+  int jumpProcess = 1;
+  while(jumpProcess <= nProcess) {
+    reduce(myRank, nProcess, partition, &numbersPerProcess, jumpProcess);
+    jumpProcess *= 2;
+  }
+
+  if(myRank == 0) {
+    printf("Resultado: %f\n", partition[0]);
+  }
 
   // Finalize MPI environment
   MPI_Finalize();
