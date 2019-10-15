@@ -120,7 +120,7 @@ void print(char outputType[5], int start, int end, float result) {
 }
 
 int main (void) {
-  int nProcess, myRank, length;
+  int nProcess, myRank, length, i;
   float numbersPerProcess;
   int aliveProcess, start, end;
   char outputType[5];
@@ -143,23 +143,29 @@ int main (void) {
   float *partition = (float *) calloc(numbersPerProcess, sizeof(float));
   readArrayAndSplitData(nProcess, myRank, length, numbersPerProcess, partition);  
 
-  aliveProcess = nProcess;
-  while(aliveProcess > 1) {
-    sumOfElements(nProcess, myRank, partition, &numbersPerProcess, &aliveProcess);
-  }
-  
-  // int i;
-  // for(i = 0; i < numbersPerProcess; i++) {
-  //   printf("partition: %d ", myRank);
-  //   printf("%f ", partition[i]);
-  // }
-  // printf("\n");
+  if(nProcess == 1) {
+    for(i = 0; i < length - 1; i++) {
+      partition[0] += partition[i+1];
+    }
+  } else {
+    aliveProcess = nProcess;
+    while(aliveProcess > 1) {
+      sumOfElements(nProcess, myRank, partition, &numbersPerProcess, &aliveProcess);
+    }
+    
+    // int i;
+    // for(i = 0; i < numbersPerProcess; i++) {
+    //   printf("partition: %d ", myRank);
+    //   printf("%f ", partition[i]);
+    // }
+    // printf("\n");
 
-  aliveProcess = nProcess;
-  int jumpProcess = 1;
-  while(jumpProcess <= nProcess) {
-    reduce(myRank, nProcess, partition, &numbersPerProcess, jumpProcess);
-    jumpProcess *= 2;
+    aliveProcess = nProcess;
+    int jumpProcess = 1;
+    while(jumpProcess <= nProcess) {
+      reduce(myRank, nProcess, partition, &numbersPerProcess, jumpProcess);
+      jumpProcess *= 2;
+    }
   }
 
   if(myRank == 0) {
