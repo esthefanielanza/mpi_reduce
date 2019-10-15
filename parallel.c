@@ -8,22 +8,17 @@
 
 int MAX_STRING = 100;
 
-void readMetadata(int nProcess, int myRank, char outputType[5], int *length, int *numbersPerProcess) {
+void readMetadata(int nProcess, int myRank, char outputType[5], int *length, float *numbersPerProcess) {
   if(myRank == 0) {
     int i;
 
     fgets(outputType, sizeof(char) * 5, stdin);  
     scanf("%d", length);
 
-    *numbersPerProcess = *length / nProcess;
+    *numbersPerProcess = ceil(*length / (float)nProcess);
     // Sending to the other process how many numbers they should handle 
     for(i = 1; i < nProcess; i++) {
-      if(i != nProcess - 1) {
-        MPI_Send(numbersPerProcess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
-      } else {
-        *numbersPerProcess = *length - (*numbersPerProcess * i);
-        MPI_Send(numbersPerProcess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
-      }
+      MPI_Send(numbersPerProcess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
     }
   } else {
     MPI_Recv(numbersPerProcess, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -31,15 +26,20 @@ void readMetadata(int nProcess, int myRank, char outputType[5], int *length, int
   }
 }
 
-void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerProcess, float *partition) {
+void readArrayAndSplitData(int nProcess, int myRank, int length, float numbersPerProcess, float *partition) {
   int i;
   float currentNumber;
 
   if(myRank == 0) {
     int sendTo;
 
-    for(i = 0; i < length; i++) {
-      scanf("%f", &currentNumber);
+    for(i = 0; i < numbersPerProcess * nProcess; i++) {
+      if(i < length) {
+        scanf("%f", &currentNumber);
+      } else {
+        currentNumber = 0;
+      }
+
       sendTo = i % nProcess;
 
       if(sendTo == 0) {
@@ -58,7 +58,7 @@ void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerP
   }
 }
 
-void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSize, int *aliveProcess) {
+void sumOfElements(int nProcess, int myRank, float *partition, float *partitionSize, int *aliveProcess) {
   float numberToBeChanged;
   int lastIndex = *partitionSize - 1;
 
@@ -67,7 +67,7 @@ void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSiz
     return;
   }
 
-  if(myRank % 2 == 0 && myRank < nProcess - 1) {
+  if(myRank % 2 == 0 && myRank + 1 < nProcess) {
     // printf("Sending %f to %d\n", partition[lastIndex], myRank + 1);
     MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD);
   } else if(myRank - 1 >= 0) {
@@ -91,7 +91,7 @@ void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSiz
 }
 
 
-void reduce(int myRank, int nProcess, float *partition, int *partitionLength,  int jumpProcess) {
+void reduce(int myRank, int nProcess, float *partition, float *partitionLength,  int jumpProcess) {
   float value = 0;
 
   if(partitionLength == 0) {
@@ -110,9 +110,20 @@ void reduce(int myRank, int nProcess, float *partition, int *partitionLength,  i
   }
 }
 
+void print(char outputType[5], int start, int end, float result) {
+  if(outputType[0] == 's' || outputType[0] == 'a') {
+    printf("%.2f\n", result);
+  }
+  
+  if(outputType[0] == 't' || outputType[0] == 'a') {
+    printf("%.6f\n", (start - end) * 1000.0);
+  }
+}
+
 int main (void) {
   int nProcess, myRank, length;
-  int numbersPerProcess, aliveProcess;
+  float numbersPerProcess;
+  int aliveProcess, start, end;
   char outputType[5];
 
   // Initialize the MPI environment
@@ -121,6 +132,10 @@ int main (void) {
   MPI_Comm_size(MPI_COMM_WORLD, &nProcess);
   // Get the rank of the processes
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+
+  if(myRank == 0) {
+    start = MPI_Wtime();
+  }
 
   // readMetadata: reads the input (stdin)
   readMetadata(nProcess, myRank, outputType, &length, &numbersPerProcess);
@@ -136,11 +151,12 @@ int main (void) {
   
   // int i;
   // for(i = 0; i < numbersPerProcess; i++) {
+  //   printf("partition: %d ", myRank);
   //   printf("%f ", partition[i]);
   // }
   // printf("\n");
 
-  // aliveProcess = nProcess;
+  aliveProcess = nProcess;
   int jumpProcess = 1;
   while(jumpProcess <= nProcess) {
     reduce(myRank, nProcess, partition, &numbersPerProcess, jumpProcess);
@@ -148,7 +164,8 @@ int main (void) {
   }
 
   if(myRank == 0) {
-    printf("Resultado: %f\n", partition[0]);
+    end = MPI_Wtime();
+    print(outputType, start, end, partition[0]);
   }
 
   // Finalize MPI environment
