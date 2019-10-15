@@ -8,30 +8,30 @@
 
 int MAX_STRING = 100;
 
-void readMetadata(int nProcess, int myRank, char outputType[5], int *length, int *numbersPerProccess) {
+void readMetadata(int nProcess, int myRank, char outputType[5], int *length, int *numbersPerProcess) {
   if(myRank == 0) {
     int i;
 
     fgets(outputType, sizeof(char) * 5, stdin);  
     scanf("%d", length);
 
-    *numbersPerProccess = *length / nProcess;
+    *numbersPerProcess = *length / nProcess;
     // Sending to the other process how many numbers they should handle 
     for(i = 1; i < nProcess; i++) {
       if(i != nProcess - 1) {
-        MPI_Send(numbersPerProccess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+        MPI_Send(numbersPerProcess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
       } else {
-        *numbersPerProccess = *length - (*numbersPerProccess * i);
-        MPI_Send(numbersPerProccess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
+        *numbersPerProcess = *length - (*numbersPerProcess * i);
+        MPI_Send(numbersPerProcess, 1, MPI_FLOAT, i, 0, MPI_COMM_WORLD);
       }
     }
   } else {
-    MPI_Recv(numbersPerProccess, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    // printf("thread %d receiving %f\n", myRank, *numbersPerProccess);
+    MPI_Recv(numbersPerProcess, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // printf("thread %d receiving %f\n", myRank, *numbersPerProcess);
   }
 }
 
-void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerProccess, float *partition) {
+void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerProcess, float *partition) {
   int i;
   float currentNumber;
 
@@ -51,7 +51,7 @@ void readArrayAndSplitData(int nProcess, int myRank, int length, int numbersPerP
       }
     }
   } else {    
-    for(i = 0; i < numbersPerProccess; i++) {
+    for(i = 0; i < numbersPerProcess; i++) {
       MPI_Recv(&currentNumber, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       partition[i] = currentNumber;
     }
@@ -62,18 +62,22 @@ void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSiz
   float numberToBeChanged;
   int lastIndex = *partitionSize - 1;
 
+  if(partitionSize == 0) {
+    return;
+  }
+
   if(myRank % 2 == 0 && myRank < nProcess - 1) {
     printf("Sending %f to %d\n", partition[lastIndex], myRank + 1);
     MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD);
-  } else {
+  } else if(myRank - 1 >= 0) {
     printf("Sending %f to %d\n", partition[lastIndex], myRank - 1);
     MPI_Send(&partition[lastIndex], 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD);
   }
 
-  if(myRank % 2 == 0) {
+  if(myRank % 2 == 0 && myRank < nProcess - 1) {
     printf("rank %d will receive from %d\n", myRank, myRank + 1);
     MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  } else {
+  } else if(myRank - 1 >= 0) {
     printf("rank %d will receive from %d\n", myRank, myRank - 1);
     MPI_Recv(&numberToBeChanged, 1, MPI_FLOAT, myRank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
@@ -87,7 +91,7 @@ void sumOfElements(int nProcess, int myRank, float *partition, int *partitionSiz
 
 int main (void) {
   int nProcess, myRank, length;
-  int numbersPerProccess;
+  int numbersPerProcess;
   char outputType[5];
 
   // Initialize the MPI environment
@@ -98,16 +102,16 @@ int main (void) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
   // readMetadata: reads the input (stdin)
-  readMetadata(nProcess, myRank, outputType, &length, &numbersPerProccess);
+  readMetadata(nProcess, myRank, outputType, &length, &numbersPerProcess);
  
   // readArrayAndSplitData: read float array and splits between processes
-  float *partition = (float *) calloc(numbersPerProccess, sizeof(float));
-  readArrayAndSplitData(nProcess, myRank, length, numbersPerProccess, partition);  
+  float *partition = (float *) calloc(numbersPerProcess, sizeof(float));
+  readArrayAndSplitData(nProcess, myRank, length, numbersPerProcess, partition);  
 
-  sumOfElements(nProcess, myRank, partition, &numbersPerProccess);
+  sumOfElements(nProcess, myRank, partition, &numbersPerProcess);
   
   int i;
-  for(i = 0; i < numbersPerProccess; i++) {
+  for(i = 0; i < numbersPerProcess; i++) {
     printf("%f ", partition[i]);
   }
   printf("\n");
