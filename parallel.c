@@ -133,17 +133,17 @@ int main (void) {
   // Get the rank of the processes
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-  if(myRank == 0) {
-    start = MPI_Wtime();
-  }
-
   // readMetadata: reads the input (stdin)
   readMetadata(nProcess, myRank, outputType, &length, &numbersPerProcess);
- 
+
   // readArrayAndSplitData: read float array and splits between processes
   float *partition = (float *) calloc(numbersPerProcess, sizeof(float));
   readArrayAndSplitData(nProcess, myRank, length, numbersPerProcess, partition);  
 
+  if(myRank == 0) {
+    start = MPI_Wtime();
+  }
+  
   if(nProcess == 1) {
     for(i = 0; i < length - 1; i++) {
       partition[0] += partition[i+1];
