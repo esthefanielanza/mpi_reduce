@@ -5,7 +5,7 @@ LIBS = -lm
 all: parallel clean
 
 parallel: parallel.o
-	$(CC) $(CFLAGS) parallel.o -o parallel $(LIBS)
+	$(CC) $(CFLAGS) parallel.o -o prog $(LIBS)
 
 clean:
 	rm *.o
