@@ -109,24 +109,21 @@ void reduce(int myRank, int nProcess, float *partition, float *partitionLength, 
   }
 }
 
-void print(char outputType[5], int start, int end, float result) {
+void print(char outputType[5], double start, double end, float result) {
   if(outputType[0] == 's' || outputType[0] == 'a') {
     printf("%.2f\n", result);
   }
   
   if(outputType[0] == 't' || outputType[0] == 'a') {
-    if (start - end < 0) {
-        printf("0\n");
-    } else {
-        printf("%.6f\n", (end - start) * 1000.0);
-    }
+    printf("%.6lf\n", (end - start)*1000.0);
   }
 }
 
 int main (void) {
   int nProcess, myRank, length, i;
   float numbersPerProcess;
-  int aliveProcess, start, end;
+  int aliveProcess;
+  double start, end;
   char outputType[5];
 
   // Initialize the MPI environment
