@@ -115,7 +115,11 @@ void print(char outputType[5], int start, int end, float result) {
   }
   
   if(outputType[0] == 't' || outputType[0] == 'a') {
-    printf("%.6f\n", (end - start) * 1000.0);
+    if (start - end < 0) {
+        printf("0\n");
+    } else {
+        printf("%.6f\n", (end - start) * 1000.0);
+    }
   }
 }
 
