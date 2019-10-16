@@ -143,7 +143,7 @@ int main (void) {
   if(myRank == 0) {
     start = MPI_Wtime();
   }
-  
+
   if(nProcess == 1) {
     for(i = 0; i < length - 1; i++) {
       partition[0] += partition[i+1];
